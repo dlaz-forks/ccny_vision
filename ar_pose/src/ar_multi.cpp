@@ -137,7 +137,7 @@ namespace ar_pose
     ROS_DEBUG ("Objectfile num = %d", objectnum);
 
     sz_ = cvSize (cam_param_.xsize, cam_param_.ysize);
-    capture_ = cvCreateImage (sz_, IPL_DEPTH_8U, 4);
+    cv_bridge::CvImagePtr capture_;
   }
 
   void ARSinglePublisher::getTransformationCallback (const sensor_msgs::ImageConstPtr & image_msg)
@@ -151,16 +151,17 @@ namespace ar_pose
      * NOTE: the dataPtr format is BGR because the ARToolKit library was
      * build with V4L, dataPtr format change according to the 
      * ARToolKit configure option (see config.h).*/
+    cv_bridge::CvImagePtr capture_;
     try
     {
-      capture_ = bridge_.imgMsgToCv (image_msg, "bgr8");
+      capture_ = cv_bridge::toCvCopy (image_msg, sensor_msgs::image_encodings::BGR8);
     }
-    catch (sensor_msgs::CvBridgeException & e)
+    catch (cv_bridge::Exception& e)
     {
-      ROS_ERROR ("Could not convert from '%s' to 'bgr8'.", image_msg->encoding.c_str ());
+      ROS_ERROR("cv_bridge exception: %s", e.what());
     }
     //cvConvertImage(capture,capture,CV_CVTIMG_FLIP);
-    dataPtr = (ARUint8 *) capture_->imageData;
+    dataPtr = (ARUint8 *) ((IplImage) capture_->image).imageData; 
 
     // detect the markers in the video frame
     if (arDetectMarker (dataPtr, threshold_, &marker_info, &marker_num) < 0)
@@ -246,9 +247,9 @@ namespace ar_pose
 
       // **** publish transform between camera and marker
 
-      btQuaternion rotation (quat[0], quat[1], quat[2], quat[3]);
-      btVector3 origin (pos[0], pos[1], pos[2]);
-      btTransform t (rotation, origin);
+      tf::Quaternion rotation (quat[0], quat[1], quat[2], quat[3]);
+      tf::Vector3 origin (pos[0], pos[1], pos[2]);
+      tf::Transform t (rotation, origin);
 
       if (publishTf_)
       {
@@ -260,9 +261,9 @@ namespace ar_pose
 
       if (publishVisualMarkers_)
       {
-        btVector3 markerOrigin (0, 0, 0.25 * object[i].marker_width * AR_TO_ROS);
-        btTransform m (btQuaternion::getIdentity (), markerOrigin);
-        btTransform markerPose = t * m; // marker pose in the camera frame
+        tf::Vector3 markerOrigin (0, 0, 0.25 * object[i].marker_width * AR_TO_ROS);
+        tf::Transform m (tf::Quaternion::getIdentity (), markerOrigin);
+        tf::Transform markerPose = t * m; // marker pose in the camera frame
 
         tf::poseTFToMsg (markerPose, rvizMarker_.pose);
 
