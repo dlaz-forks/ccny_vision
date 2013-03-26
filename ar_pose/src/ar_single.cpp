@@ -37,7 +37,7 @@ namespace ar_pose
   {
     std::string local_path;
     std::string package_path = ros::package::getPath (ROS_PACKAGE_NAME);
-	std::string default_path = "data/patt.hiro";
+  std::string default_path = "data/patt.hiro";
     ros::NodeHandle n_param ("~");
     XmlRpc::XmlRpcValue xml_marker_center;
 
@@ -80,16 +80,16 @@ namespace ar_pose
 //     sprintf (pattern_filename_, "%s/%s", package_path.c_str (), local_path.c_str ());
 //     ROS_INFO ("\tMarker Pattern Filename: %s", pattern_filename_);
 
-	//modifications to allow patterns to be loaded from outside the package
-	n_param.param ("marker_pattern", local_path, default_path);
-	if (local_path.compare(0,5,"data/") == 0){
-	  //to keep working on previous implementations, check if first 5 chars equal "data/"
-	  sprintf (pattern_filename_, "%s/%s", package_path.c_str (), local_path.c_str ());
-	}
-	else{
-	  //for new implementations, can pass a path outside the package_path
-	  sprintf (pattern_filename_, "%s", local_path.c_str ());
-	}
+  //modifications to allow patterns to be loaded from outside the package
+  n_param.param ("marker_pattern", local_path, default_path);
+  if (local_path.compare(0,5,"data/") == 0){
+    //to keep working on previous implementations, check if first 5 chars equal "data/"
+    sprintf (pattern_filename_, "%s/%s", package_path.c_str (), local_path.c_str ());
+  }
+  else{
+    //for new implementations, can pass a path outside the package_path
+    sprintf (pattern_filename_, "%s", local_path.c_str ());
+  }
 
     n_param.param ("marker_center_x", marker_center_[0], 0.0);
     n_param.param ("marker_center_y", marker_center_[1], 0.0);
@@ -105,8 +105,8 @@ namespace ar_pose
 
     arMarkerPub_   = n_.advertise<ar_pose::ARMarker>("ar_pose_marker", 0);
     if(publishVisualMarkers_){ 
-		rvizMarkerPub_ = n_.advertise<visualization_msgs::Marker>("visualization_marker", 0);
-	 }
+    rvizMarkerPub_ = n_.advertise<visualization_msgs::Marker>("visualization_marker", 0);
+   }
   }
 
   ARSinglePublisher::~ARSinglePublisher (void)
@@ -138,11 +138,11 @@ namespace ar_pose
       cam_param_.mat[1][3] = cam_info_.P[7];
       cam_param_.mat[2][3] = cam_info_.P[11];
      
-	  cam_param_.dist_factor[0] = cam_info_.K[2];       // x0 = cX from openCV calibration
+    cam_param_.dist_factor[0] = cam_info_.K[2];       // x0 = cX from openCV calibration
       cam_param_.dist_factor[1] = cam_info_.K[5];       // y0 = cY from openCV calibration
       cam_param_.dist_factor[2] = -100*cam_info_.D[0];  // f = -100*k1 from CV. Note, we had to do mm^2 to m^2, hence 10^8->10^2
       cam_param_.dist_factor[3] = 1.0;                  // scale factor, should probably be >1, but who cares...
-	     
+       
       arInit();
 
       ROS_INFO ("Subscribing to image topic");
@@ -182,16 +182,18 @@ namespace ar_pose
      * NOTE: the dataPtr format is BGR because the ARToolKit library was
      * build with V4L, dataPtr format change according to the 
      * ARToolKit configure option (see config.h).*/
+    cv_bridge::CvImagePtr capture_;
     try
     {
-      capture_ = bridge_.imgMsgToCv (image_msg, "bgr8");
+      // capture_ = bridge_.imgMsgToCv (image_msg, "bgr8");
+      capture_ = cv_bridge::toCvCopy (image_msg, sensor_msgs::image_encodings::BGR8);
     }
-    catch (sensor_msgs::CvBridgeException & e)
+    catch (cv_bridge::Exception& e)
     {
-      ROS_ERROR ("Could not convert from '%s' to 'bgr8'.", image_msg->encoding.c_str ());
+      ROS_ERROR("cv_bridge exception: %s", e.what());
     }
     //cvConvertImage(capture_,capture_,CV_CVTIMG_FLIP); //flip image
-    dataPtr = (ARUint8 *) capture_->imageData;
+    dataPtr = (ARUint8 *) ((IplImage) capture_->image).imageData;
 
     // detect the markers in the video frame 
     if (arDetectMarker (dataPtr, threshold_, &marker_info, &marker_num) < 0)
@@ -249,24 +251,24 @@ namespace ar_pose
 
       // **** publish the marker
 
-		  ar_pose_marker_.header.frame_id = image_msg->header.frame_id;
-		  ar_pose_marker_.header.stamp    = image_msg->header.stamp;
-		  ar_pose_marker_.id              = marker_info->id;
+      ar_pose_marker_.header.frame_id = image_msg->header.frame_id;
+      ar_pose_marker_.header.stamp    = image_msg->header.stamp;
+      ar_pose_marker_.id              = marker_info->id;
 
-		  ar_pose_marker_.pose.pose.position.x = pos[0];
-		  ar_pose_marker_.pose.pose.position.y = pos[1];
-		  ar_pose_marker_.pose.pose.position.z = pos[2];
+      ar_pose_marker_.pose.pose.position.x = pos[0];
+      ar_pose_marker_.pose.pose.position.y = pos[1];
+      ar_pose_marker_.pose.pose.position.z = pos[2];
 
-		  ar_pose_marker_.pose.pose.orientation.x = quat[0];
-		  ar_pose_marker_.pose.pose.orientation.y = quat[1];
-		  ar_pose_marker_.pose.pose.orientation.z = quat[2];
-		  ar_pose_marker_.pose.pose.orientation.w = quat[3];
-		
-		  ar_pose_marker_.confidence = marker_info->cf;
+      ar_pose_marker_.pose.pose.orientation.x = quat[0];
+      ar_pose_marker_.pose.pose.orientation.y = quat[1];
+      ar_pose_marker_.pose.pose.orientation.z = quat[2];
+      ar_pose_marker_.pose.pose.orientation.w = quat[3];
+    
+      ar_pose_marker_.confidence = marker_info->cf;
 
-		  arMarkerPub_.publish(ar_pose_marker_);
-		  ROS_DEBUG ("Published ar_single marker");
-		
+      arMarkerPub_.publish(ar_pose_marker_);
+      ROS_DEBUG ("Published ar_single marker");
+    
       // **** publish transform between camera and marker
 
       btQuaternion rotation (quat[0], quat[1], quat[2], quat[3]);
@@ -295,24 +297,24 @@ namespace ar_pose
       
         tf::poseTFToMsg(markerPose, rvizMarker_.pose);
 
-			  rvizMarker_.header.frame_id = image_msg->header.frame_id;
-			  rvizMarker_.header.stamp = image_msg->header.stamp;
-			  rvizMarker_.id = 1;
+        rvizMarker_.header.frame_id = image_msg->header.frame_id;
+        rvizMarker_.header.stamp = image_msg->header.stamp;
+        rvizMarker_.id = 1;
 
-			  rvizMarker_.scale.x = 1.0 * markerWidth_ * AR_TO_ROS;
-			  rvizMarker_.scale.y = 1.0 * markerWidth_ * AR_TO_ROS;
-			  rvizMarker_.scale.z = 0.5 * markerWidth_ * AR_TO_ROS;
-			  rvizMarker_.ns = "basic_shapes";
-			  rvizMarker_.type = visualization_msgs::Marker::CUBE;
-			  rvizMarker_.action = visualization_msgs::Marker::ADD;
-			  rvizMarker_.color.r = 0.0f;
-			  rvizMarker_.color.g = 1.0f;
-			  rvizMarker_.color.b = 0.0f;
-			  rvizMarker_.color.a = 1.0;
-			  rvizMarker_.lifetime = ros::Duration(1.0);
-			
-			  rvizMarkerPub_.publish(rvizMarker_);
-			  ROS_DEBUG ("Published visual marker");
+        rvizMarker_.scale.x = 1.0 * markerWidth_ * AR_TO_ROS;
+        rvizMarker_.scale.y = 1.0 * markerWidth_ * AR_TO_ROS;
+        rvizMarker_.scale.z = 0.5 * markerWidth_ * AR_TO_ROS;
+        rvizMarker_.ns = "basic_shapes";
+        rvizMarker_.type = visualization_msgs::Marker::CUBE;
+        rvizMarker_.action = visualization_msgs::Marker::ADD;
+        rvizMarker_.color.r = 0.0f;
+        rvizMarker_.color.g = 1.0f;
+        rvizMarker_.color.b = 0.0f;
+        rvizMarker_.color.a = 1.0;
+        rvizMarker_.lifetime = ros::Duration(1.0);
+      
+        rvizMarkerPub_.publish(rvizMarker_);
+        ROS_DEBUG ("Published visual marker");
       }
     }
     else

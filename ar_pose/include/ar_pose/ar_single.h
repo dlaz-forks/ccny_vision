@@ -42,7 +42,8 @@
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
-#include <cv_bridge/CvBridge.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
 
 #include <ar_pose/ARMarker.h>
 
@@ -72,7 +73,7 @@ namespace ar_pose
     ar_pose::ARMarker ar_pose_marker_;
     image_transport::ImageTransport it_;
     image_transport::Subscriber cam_sub_;
-    sensor_msgs::CvBridge bridge_;
+    // sensor_msgs::CvBridge bridge_;
     sensor_msgs::CameraInfo cam_info_;
 
     // **** parameters
